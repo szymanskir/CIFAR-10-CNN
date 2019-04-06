@@ -103,3 +103,7 @@ cifarconv.env/*
 
 # mypy
 .mypy_cache/
+
+# extra directories
+data/*
+models/*
