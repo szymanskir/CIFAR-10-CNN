@@ -1,13 +1,17 @@
 import click
 import logging
+import numpy as np
+import torch
 import torch.nn as nn
-import torchvision
 import torch.optim as optim
+from cifarconv.networks import LeNet5
+from cifarconv.utils import read_config
+from cifarconv.data import read_cifar_data
+from skorch import NeuralNetClassifier
+from sklearn.model_selection import GridSearchCV
 import torchvision.datasets
 import torchvision.transforms as transforms
 import torch.utils.data
-from cifarconv.networks import LeNet5
-from cifarconv.utils import read_config
 
 
 @click.group()
@@ -24,37 +28,16 @@ def main():
 @click.argument('config_file', type=click.Path(exists=True))
 @click.option('--output', default=None)
 def train(config_file, output):
-    config = read_config(config_file)['DEFAULT']
-
-    BATCH_SIZE = config.getint('BatchSize')
-    WORKERS_COUNT = config.getint('WorkersCount')
-    EPOCHS_COUNT = config.getint('EpochsCount')
+    config = read_config(config_file)
 
     logging.info('Reading CIFAR-10 dataset...')
-
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
-
-    train = torchvision.datasets.CIFAR10(
-        root='data', train=True, download=True, transform=transform
+    train_loader = read_cifar_data(
+        config=config,
+        train=True
     )
-    train_loader = torch.utils.data.DataLoader(
-        train,
-        batch_size=BATCH_SIZE,
-        shuffle=True,
-        num_workers=WORKERS_COUNT
-    )
-
-    test = torchvision.datasets.CIFAR10(
-        root='data', train=False, download=True, transform=transform
-    )
-    test_loader = torch.utils.data.DataLoader(
-        test,
-        batch_size=BATCH_SIZE,
-        shuffle=True,
-        num_workers=WORKERS_COUNT
+    test_loader = read_cifar_data(
+        config=config,
+        train=False
     )
 
     model = LeNet5()
@@ -62,7 +45,8 @@ def train(config_file, output):
     optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
     current_cost = 0
-    for epoch in range(EPOCHS_COUNT):
+    epochs_count = config['DEFAULT'].getint('EpochsCount')
+    for epoch in range(epochs_count):
         logging.info(f'Processing epoch {epoch}...')
         for X, y in train_loader:
             optimizer.zero_grad()
@@ -73,7 +57,8 @@ def train(config_file, output):
 
             logging.info(f'Current cost: {cost.item()}')
 
-    torch.save(model.state_dict(), 'sample-network.pkl')
+    if output:
+        torch.save(model.state_dict(), output)
 
     correct = 0
     total = 0
@@ -95,6 +80,41 @@ def train(config_file, output):
 def test():
     pass
 
+
+@main.command()
+@click.argument('config_file', type=click.Path(exists=True))
+def grid_search(config_file):
+    config = read_config(config_file)
+
+    logging.info('Reading CIFAR-10 dataset...')
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+
+    data = torchvision.datasets.CIFAR10(
+        root='data', train=True, download=True, transform=transform
+    )
+    X = np.array([x.numpy() for x, _ in data])
+    y = np.array([y for _, y in data])
+    module = LeNet5()
+    net = NeuralNetClassifier(
+        module=module,
+        criterion=nn.CrossEntropyLoss,
+        optimizer=optim.SGD
+    )
+    params = {
+        'lr': [0.1, 0.01, 0.001, 0.0001],
+        'max_epochs': [2, 4],
+        'optimizer__momentum': [0.7, 0.8, 0.9],
+        'optimizer__weight_decay': [10, 1, 0.1, 0.01, 0.001]
+    }
+
+    gs = GridSearchCV(net, params, refit=False, cv=3, scoring='accuracy', verbose=10)
+
+    gs.fit(X, y)
+    logging.info(f'\nBest score:{gs.best_score_}')
+    logging.info(f'\nBest parameters:{gs.best_params_}')
 
 if __name__ == '__main__':
     main()

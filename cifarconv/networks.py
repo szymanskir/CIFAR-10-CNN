@@ -29,7 +29,7 @@ class LeNet5(nn.Module):
                     ("F6", nn.Linear(120, 84)),
                     ("relu5", nn.ReLU()),
                     ("F7", nn.Linear(84, 10)),
-                    ("softmax", nn.Softmax(dim=-1)),
+                    ("softmax", nn.LogSoftmax(dim=-1)),
                 ]
             )
         )
