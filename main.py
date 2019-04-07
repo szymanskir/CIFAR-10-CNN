@@ -64,9 +64,9 @@ def train(config_file, output):
             cost.backward()
             optimizer.step()
 
-            logging.info(f"Current cost: {cost.item()}")
+            logging.debug(f"Current cost: {cost.item()}")
 
-    torch.save(model.state_dict(), "sample-network.pkl")
+    torch.save(model.state_dict(), output)
 
     correct = 0
     total = 0

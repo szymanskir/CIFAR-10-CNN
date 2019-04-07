@@ -42,6 +42,8 @@ tests:
 # PROJECT RULES                                                                 #
 #################################################################################
 
+basic_nn:
+	$(PYTHON_INTERPRETER) main.py train models/basic.cfg --output models/basic.pkl
 
 #################################################################################
 # Self Documenting Commands                                                     #
