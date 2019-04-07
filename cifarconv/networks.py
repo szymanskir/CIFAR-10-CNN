@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from collections import OrderedDict
 
 
@@ -38,3 +39,28 @@ class LeNet5(nn.Module):
         y = self.conv_layers(x)
         y = y.view(-1, 16 * 5 * 5)
         return self.fully_connected_layers(y)
+
+
+class AllCnn(nn.Module):
+    def __init__(self):
+        super(AllCnn, self).__init__()
+        self.conv1 = nn.Conv2d(3, 96, 3)
+        self.conv2 = nn.Conv2d(96, 96, 3, stride=2)
+        self.conv3 = nn.Conv2d(96, 192, 3)
+        self.conv4 = nn.Conv2d(192, 192, 3, stride=2)
+        self.bn1 = nn.BatchNorm1d(num_features=192 * 5 * 5)
+        self.fc1 = nn.Linear(192 * 5 * 5, 256)
+        self.fc2 = nn.Linear(256, 10)
+
+    def forward(self, x):
+        out = F.relu(self.conv1(x))
+        out = F.relu(self.conv2(out))
+        out = F.dropout2d(out, p=0.2)
+        out = F.relu(self.conv3(out))
+        out = F.relu(self.conv4(out))
+        out = F.dropout2d(out, p=0.5)
+        out = out.view(out.size(0), -1)
+        out = self.bn1(out)
+        out = F.relu(self.fc1(out))
+        out = F.softmax(self.fc2(out))
+        return out

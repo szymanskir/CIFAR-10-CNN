@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from cifarconv.networks import LeNet5
+from cifarconv.networks import LeNet5, AllCnn
 from cifarconv.utils import read_config
 from cifarconv.data import read_cifar_data
 from skorch import NeuralNetClassifier
@@ -55,12 +55,16 @@ def train(config_file, output):
     )
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = LeNet5().to(device)
+    model = AllCnn().to(device)
     cost_function = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    scheduler = optim.lr_scheduler.MultiStepLR(
+        optimizer, milestones=[75, 150], gamma=0.5
+    )
 
     current_cost = 0
     for epoch in range(EPOCHS_COUNT):
+        scheduler.step(epoch)
         logging.info(f"Processing epoch {epoch}...")
         for X, y in train_loader:
             X, y = X.to(device), y.to(device)
@@ -98,39 +102,37 @@ def test():
 
 
 @main.command()
-@click.argument('config_file', type=click.Path(exists=True))
+@click.argument("config_file", type=click.Path(exists=True))
 def grid_search(config_file):
     config = read_config(config_file)
 
-    logging.info('Reading CIFAR-10 dataset...')
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
+    logging.info("Reading CIFAR-10 dataset...")
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+    )
 
     data = torchvision.datasets.CIFAR10(
-        root='data', train=True, download=True, transform=transform
+        root="data", train=True, download=True, transform=transform
     )
     X = np.array([x.numpy() for x, _ in data])
     y = np.array([y for _, y in data])
     module = LeNet5()
     net = NeuralNetClassifier(
-        module=module,
-        criterion=nn.CrossEntropyLoss,
-        optimizer=optim.SGD
+        module=module, criterion=nn.CrossEntropyLoss, optimizer=optim.SGD
     )
     params = {
-        'lr': [0.1, 0.01, 0.001, 0.0001],
-        'max_epochs': [2, 4],
-        'optimizer__momentum': [0.7, 0.8, 0.9],
-        'optimizer__weight_decay': [10, 1, 0.1, 0.01, 0.001]
+        "lr": [0.1, 0.01, 0.001, 0.0001],
+        "max_epochs": [2, 4],
+        "optimizer__momentum": [0.7, 0.8, 0.9],
+        "optimizer__weight_decay": [10, 1, 0.1, 0.01, 0.001],
     }
 
-    gs = GridSearchCV(net, params, refit=False, cv=3, scoring='accuracy', verbose=10)
+    gs = GridSearchCV(net, params, refit=False, cv=3, scoring="accuracy", verbose=10)
 
     gs.fit(X, y)
-    logging.info(f'\nBest score:{gs.best_score_}')
-    logging.info(f'\nBest parameters:{gs.best_params_}')
+    logging.info(f"\nBest score:{gs.best_score_}")
+    logging.info(f"\nBest parameters:{gs.best_params_}")
+
 
 if __name__ == "__main__":
     main()
