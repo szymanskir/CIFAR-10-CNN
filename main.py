@@ -14,47 +14,40 @@ from cifarconv.utils import read_config
 def main():
     torch.manual_seed(44)
     logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-            datefmt='%m-%d %H:%M:%S'
+        level=logging.INFO,
+        format="%(asctime)s %(name)-12s %(levelname)-8s %(message)s",
+        datefmt="%m-%d %H:%M:%S",
     )
 
 
 @main.command()
-@click.argument('config_file', type=click.Path(exists=True))
-@click.option('--output', default=None)
+@click.argument("config_file", type=click.Path(exists=True))
+@click.option("--output", default=None)
 def train(config_file, output):
-    config = read_config(config_file)['DEFAULT']
+    config = read_config(config_file)["DEFAULT"]
 
-    BATCH_SIZE = config.getint('BatchSize')
-    WORKERS_COUNT = config.getint('WorkersCount')
-    EPOCHS_COUNT = config.getint('EpochsCount')
+    BATCH_SIZE = config.getint("BatchSize")
+    WORKERS_COUNT = config.getint("WorkersCount")
+    EPOCHS_COUNT = config.getint("EpochsCount")
 
-    logging.info('Reading CIFAR-10 dataset...')
+    logging.info("Reading CIFAR-10 dataset...")
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+    )
 
     train = torchvision.datasets.CIFAR10(
-        root='data', train=True, download=True, transform=transform
+        root="data", train=True, download=True, transform=transform
     )
     train_loader = torch.utils.data.DataLoader(
-        train,
-        batch_size=BATCH_SIZE,
-        shuffle=True,
-        num_workers=WORKERS_COUNT
+        train, batch_size=BATCH_SIZE, shuffle=True, num_workers=WORKERS_COUNT
     )
 
     test = torchvision.datasets.CIFAR10(
-        root='data', train=False, download=True, transform=transform
+        root="data", train=False, download=True, transform=transform
     )
     test_loader = torch.utils.data.DataLoader(
-        test,
-        batch_size=BATCH_SIZE,
-        shuffle=True,
-        num_workers=WORKERS_COUNT
+        test, batch_size=BATCH_SIZE, shuffle=True, num_workers=WORKERS_COUNT
     )
 
     model = LeNet5()
@@ -63,7 +56,7 @@ def train(config_file, output):
 
     current_cost = 0
     for epoch in range(EPOCHS_COUNT):
-        logging.info(f'Processing epoch {epoch}...')
+        logging.info(f"Processing epoch {epoch}...")
         for X, y in train_loader:
             optimizer.zero_grad()
             y_predictions = model(X)
@@ -71,9 +64,9 @@ def train(config_file, output):
             cost.backward()
             optimizer.step()
 
-            logging.info(f'Current cost: {cost.item()}')
+            logging.info(f"Current cost: {cost.item()}")
 
-    torch.save(model.state_dict(), 'sample-network.pkl')
+    torch.save(model.state_dict(), "sample-network.pkl")
 
     correct = 0
     total = 0
@@ -86,8 +79,8 @@ def train(config_file, output):
             correct += (predicted == labels).sum().item()
 
     logging.info(
-        'Accuracy of the network on the 10000 test images: %d %%' % (
-            100 * correct / total)
+        "Accuracy of the network on the 10000 test images: %d %%"
+        % (100 * correct / total)
     )
 
 
@@ -96,5 +89,5 @@ def test():
     pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
