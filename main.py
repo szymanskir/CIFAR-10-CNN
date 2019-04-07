@@ -1,12 +1,12 @@
 import click
 import logging
 import numpy as np
+import random
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from cifarconv.networks import LeNet5
 from cifarconv.utils import read_config
-from cifarconv.data import read_cifar_data
 from skorch import NeuralNetClassifier
 from sklearn.model_selection import GridSearchCV
 import torchvision.datasets
@@ -16,7 +16,11 @@ import torch.utils.data
 
 @click.group()
 def main():
-    torch.manual_seed(44)
+    random.seed(1)
+    torch.manual_seed(1)
+    torch.cuda.manual_seed(1)
+    np.random.seed(1)
+    torch.backends.cudnn.deterministic = True
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(name)-12s %(levelname)-8s %(message)s",
@@ -36,19 +40,26 @@ def train(config_file, output):
 
     logging.info("Reading CIFAR-10 dataset...")
 
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+    train_transforms = transforms.Compose(
+        [
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(size=32, padding=2),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ]
     )
-
     train = torchvision.datasets.CIFAR10(
-        root="data", train=True, download=True, transform=transform
+        root="data", train=True, download=True, transform=train_transforms
     )
     train_loader = torch.utils.data.DataLoader(
         train, batch_size=BATCH_SIZE, shuffle=True, num_workers=WORKERS_COUNT
     )
 
+    test_transforms = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+    )
     test = torchvision.datasets.CIFAR10(
-        root="data", train=False, download=True, transform=transform
+        root="data", train=False, download=True, transform=test_transforms
     )
     test_loader = torch.utils.data.DataLoader(
         test, batch_size=BATCH_SIZE, shuffle=True, num_workers=WORKERS_COUNT
@@ -57,7 +68,7 @@ def train(config_file, output):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = LeNet5().to(device)
     cost_function = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     current_cost = 0
     for epoch in range(EPOCHS_COUNT):
@@ -87,8 +98,7 @@ def train(config_file, output):
             correct += (predicted == labels).sum().item()
 
     logging.info(
-        "Accuracy of the network on the 10000 test images: %d %%"
-        % (100 * correct / total)
+        f"Accuracy of the network on the 10000 test images: {100 * correct / total}"
     )
 
 
@@ -98,39 +108,37 @@ def test():
 
 
 @main.command()
-@click.argument('config_file', type=click.Path(exists=True))
+@click.argument("config_file", type=click.Path(exists=True))
 def grid_search(config_file):
     config = read_config(config_file)
 
-    logging.info('Reading CIFAR-10 dataset...')
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
+    logging.info("Reading CIFAR-10 dataset...")
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+    )
 
     data = torchvision.datasets.CIFAR10(
-        root='data', train=True, download=True, transform=transform
+        root="data", train=True, download=True, transform=transform
     )
     X = np.array([x.numpy() for x, _ in data])
     y = np.array([y for _, y in data])
     module = LeNet5()
     net = NeuralNetClassifier(
-        module=module,
-        criterion=nn.CrossEntropyLoss,
-        optimizer=optim.SGD
+        module=module, criterion=nn.CrossEntropyLoss, optimizer=optim.SGD
     )
     params = {
-        'lr': [0.1, 0.01, 0.001, 0.0001],
-        'max_epochs': [2, 4],
-        'optimizer__momentum': [0.7, 0.8, 0.9],
-        'optimizer__weight_decay': [10, 1, 0.1, 0.01, 0.001]
+        "lr": [0.1, 0.01, 0.001, 0.0001],
+        "max_epochs": [2, 4],
+        "optimizer__momentum": [0.7, 0.8, 0.9],
+        "optimizer__weight_decay": [10, 1, 0.1, 0.01, 0.001],
     }
 
-    gs = GridSearchCV(net, params, refit=False, cv=3, scoring='accuracy', verbose=10)
+    gs = GridSearchCV(net, params, refit=False, cv=3, scoring="accuracy", verbose=10)
 
     gs.fit(X, y)
-    logging.info(f'\nBest score:{gs.best_score_}')
-    logging.info(f'\nBest parameters:{gs.best_params_}')
+    logging.info(f"\nBest score:{gs.best_score_}")
+    logging.info(f"\nBest parameters:{gs.best_params_}")
+
 
 if __name__ == "__main__":
     main()
