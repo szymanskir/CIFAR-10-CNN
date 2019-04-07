@@ -27,8 +27,8 @@ clean:
 
 ## Lint using flake8 nad check types using mypy
 lint:
-	flake8 sentinel
-	mypy sentinel --ignore-missing-imports
+	flake8 cifarconv
+	mypy cifarconv --ignore-missing-imports
 
 ## Create virtual environment:
 create_environment:
@@ -43,7 +43,7 @@ tests:
 #################################################################################
 
 basic_nn:
-	$(PYTHON_INTERPRETER) main.py train models/basic.cfg --output models/basic.pkl
+	$(PYTHON_INTERPRETER) main.py train models/basic.ini --output models/basic.pkl
 
 #################################################################################
 # Self Documenting Commands                                                     #
