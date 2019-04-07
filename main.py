@@ -50,7 +50,8 @@ def train(config_file, output):
         test, batch_size=BATCH_SIZE, shuffle=True, num_workers=WORKERS_COUNT
     )
 
-    model = LeNet5()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = LeNet5().to(device)
     cost_function = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
@@ -58,6 +59,7 @@ def train(config_file, output):
     for epoch in range(EPOCHS_COUNT):
         logging.info(f"Processing epoch {epoch}...")
         for X, y in train_loader:
+            X, y = X.to(device), y.to(device)
             optimizer.zero_grad()
             y_predictions = model(X)
             cost = cost_function(y_predictions, y)
@@ -73,6 +75,7 @@ def train(config_file, output):
     with torch.no_grad():
         for data in test_loader:
             images, labels = data
+            images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
