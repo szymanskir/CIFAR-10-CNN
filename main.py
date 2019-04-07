@@ -18,44 +18,59 @@ import torch.utils.data
 def main():
     torch.manual_seed(44)
     logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-            datefmt='%m-%d %H:%M:%S'
+        level=logging.INFO,
+        format="%(asctime)s %(name)-12s %(levelname)-8s %(message)s",
+        datefmt="%m-%d %H:%M:%S",
     )
 
 
 @main.command()
-@click.argument('config_file', type=click.Path(exists=True))
-@click.option('--output', default=None)
+@click.argument("config_file", type=click.Path(exists=True))
+@click.option("--output", default=None)
 def train(config_file, output):
-    config = read_config(config_file)
+    config = read_config(config_file)["DEFAULT"]
 
-    logging.info('Reading CIFAR-10 dataset...')
-    train_loader = read_cifar_data(
-        config=config,
-        train=True
-    )
-    test_loader = read_cifar_data(
-        config=config,
-        train=False
+    BATCH_SIZE = config.getint("BatchSize")
+    WORKERS_COUNT = config.getint("WorkersCount")
+    EPOCHS_COUNT = config.getint("EpochsCount")
+
+    logging.info("Reading CIFAR-10 dataset...")
+
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
     )
 
-    model = LeNet5()
+    train = torchvision.datasets.CIFAR10(
+        root="data", train=True, download=True, transform=transform
+    )
+    train_loader = torch.utils.data.DataLoader(
+        train, batch_size=BATCH_SIZE, shuffle=True, num_workers=WORKERS_COUNT
+    )
+
+    test = torchvision.datasets.CIFAR10(
+        root="data", train=False, download=True, transform=transform
+    )
+    test_loader = torch.utils.data.DataLoader(
+        test, batch_size=BATCH_SIZE, shuffle=True, num_workers=WORKERS_COUNT
+    )
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = LeNet5().to(device)
     cost_function = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
     current_cost = 0
-    epochs_count = config['DEFAULT'].getint('EpochsCount')
-    for epoch in range(epochs_count):
-        logging.info(f'Processing epoch {epoch}...')
+    for epoch in range(EPOCHS_COUNT):
+        logging.info(f"Processing epoch {epoch}...")
         for X, y in train_loader:
+            X, y = X.to(device), y.to(device)
             optimizer.zero_grad()
             y_predictions = model(X)
             cost = cost_function(y_predictions, y)
             cost.backward()
             optimizer.step()
 
-            logging.info(f'Current cost: {cost.item()}')
+            logging.debug(f"Current cost: {cost.item()}")
 
     if output:
         torch.save(model.state_dict(), output)
@@ -65,14 +80,15 @@ def train(config_file, output):
     with torch.no_grad():
         for data in test_loader:
             images, labels = data
+            images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
     logging.info(
-        'Accuracy of the network on the 10000 test images: %d %%' % (
-            100 * correct / total)
+        "Accuracy of the network on the 10000 test images: %d %%"
+        % (100 * correct / total)
     )
 
 
@@ -116,5 +132,5 @@ def grid_search(config_file):
     logging.info(f'\nBest score:{gs.best_score_}')
     logging.info(f'\nBest parameters:{gs.best_params_}')
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
