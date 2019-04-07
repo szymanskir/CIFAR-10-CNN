@@ -13,7 +13,6 @@ mypy-extensions==0.4.1
 numpy==1.16.2
 parso==0.3.4
 Pillow==6.0.0
-pkg-resources==0.0.0
 pycodestyle==2.5.0
 pyflakes==2.1.1
 rope==0.14.0
