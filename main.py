@@ -57,28 +57,30 @@ def train(config_file, output):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = AllCnn().to(device)
     cost_function = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    scheduler = optim.lr_scheduler.MultiStepLR(
-        optimizer, milestones=[75, 150], gamma=0.5
-    )
 
-    current_cost = 0
+    model.train()
+    optimizer = optim.SGD(
+        model.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-3, nesterov=True
+    )
     for epoch in range(EPOCHS_COUNT):
-        scheduler.step(epoch)
         logging.info(f"Processing epoch {epoch}...")
+        if epoch > 1:
+            logging.info(f"Current cost: {current_cost}")
+        current_cost = 0
         for X, y in train_loader:
             X, y = X.to(device), y.to(device)
             optimizer.zero_grad()
             y_predictions = model(X)
             cost = cost_function(y_predictions, y)
             cost.backward()
-            optimizer.step()
 
-            logging.debug(f"Current cost: {cost.item()}")
+            optimizer.step()
+            current_cost += cost.item()
 
     if output:
         torch.save(model.state_dict(), output)
 
+    model.eval()
     correct = 0
     total = 0
     with torch.no_grad():
