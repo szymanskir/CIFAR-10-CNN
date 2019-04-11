@@ -36,19 +36,23 @@ def train(config_file, output):
 
     logging.info("Reading CIFAR-10 dataset...")
 
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+    train_transforms = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ]
     )
-
     train = torchvision.datasets.CIFAR10(
-        root="data", train=True, download=True, transform=transform
+        root="data", train=True, download=True, transform=train_transforms
     )
     train_loader = torch.utils.data.DataLoader(
         train, batch_size=BATCH_SIZE, shuffle=True, num_workers=WORKERS_COUNT
     )
-
+    test_transforms = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+    )
     test = torchvision.datasets.CIFAR10(
-        root="data", train=False, download=True, transform=transform
+        root="data", train=False, download=True, transform=test_transforms
     )
     test_loader = torch.utils.data.DataLoader(
         test, batch_size=BATCH_SIZE, shuffle=True, num_workers=WORKERS_COUNT
