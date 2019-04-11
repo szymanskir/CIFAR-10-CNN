@@ -5,7 +5,7 @@ from keras.optimizers import SGD
 from keras.preprocessing.image import ImageDataGenerator
 
 batch_size = 32
-epochs = 40
+epochs = 300
 (x_train, y_train), (x_test, y_test) = cifar10.load_data()
 
 model = create_allcnn(x_train.shape[1:])
@@ -22,7 +22,13 @@ x_test /= 255
 y_train = keras.utils.to_categorical(y_train, 10)
 y_test = keras.utils.to_categorical(y_test, 10)
 
-img_augmentor = ImageDataGenerator(horizontal_flip=True, rotation_range=10)
+img_augmentor = ImageDataGenerator(
+    horizontal_flip=True,
+    rotation_range=10,
+    zoom_range=0.3,
+    width_shift_range=0.3,
+    height_shift_range=0.3,
+)
 img_augmentor.fit(x_train)
 
 model.fit_generator(
