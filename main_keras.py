@@ -5,11 +5,11 @@ from keras.optimizers import SGD
 from keras.preprocessing.image import ImageDataGenerator
 
 batch_size = 32
-epochs = 40
+epochs = 150
 (x_train, y_train), (x_test, y_test) = cifar10.load_data()
 
 model = create_allcnn(x_train.shape[1:])
-sgd_optimizer = SGD(lr=0.01, momentum=0.9)
+sgd_optimizer = SGD(lr=0.01, momentum=0.9, nesterov=True)
 model.compile(
     loss="categorical_crossentropy", optimizer=sgd_optimizer, metrics=["accuracy"]
 )
