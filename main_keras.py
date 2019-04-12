@@ -5,7 +5,7 @@ from keras.optimizers import SGD
 from keras.preprocessing.image import ImageDataGenerator
 
 batch_size = 32
-epochs = 300
+epochs = 40
 (x_train, y_train), (x_test, y_test) = cifar10.load_data()
 
 model = create_allcnn(x_train.shape[1:])
