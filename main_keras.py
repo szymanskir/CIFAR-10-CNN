@@ -1,15 +1,25 @@
 import keras
 from cifarconv.networks import create_allcnn, create_lenet5
+from keras.callbacks import LearningRateScheduler
 from keras.datasets import cifar10
 from keras.optimizers import SGD
 from keras.preprocessing.image import ImageDataGenerator
 
+
+def update_lr(epoch, current_lr):
+    if epoch in {100, 200}:
+        return current_lr * 0.1
+
+    return current_lr
+
+
 batch_size = 32
-epochs = 150
+epochs = 250
 (x_train, y_train), (x_test, y_test) = cifar10.load_data()
 
 model = create_allcnn(x_train.shape[1:])
 sgd_optimizer = SGD(lr=0.01, momentum=0.9, nesterov=True)
+lrate_scheduler = LearningRateScheduler(schedule=update_lr, verbose=1)
 model.compile(
     loss="categorical_crossentropy", optimizer=sgd_optimizer, metrics=["accuracy"]
 )
@@ -36,6 +46,7 @@ model.fit_generator(
     epochs=epochs,
     validation_data=(x_test, y_test),
     steps_per_epoch=len(x_train) / batch_size,
+    callbacks=[lrate_scheduler],
 )
 
 # Score trained model.
