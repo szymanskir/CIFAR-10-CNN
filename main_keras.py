@@ -8,18 +8,18 @@ from keras.preprocessing.image import ImageDataGenerator
 
 
 def update_lr(epoch, current_lr):
-    if epoch in {150, 200, 250}:
+    if epoch in {100, 150, 200, 250}:
         return current_lr * 0.1
 
     return current_lr
 
 
-batch_size = 32
+batch_size = 128 
 epochs = 250
 (x_train, y_train), (x_test, y_test) = cifar10.load_data()
 
 model = create_allcnn(x_train.shape[1:])
-sgd_optimizer = SGD(lr=0.01, momentum=0.9, nesterov=True)
+sgd_optimizer = SGD(lr=0.1, momentum=0.9, nesterov=True)
 lrate_scheduler = LearningRateScheduler(schedule=update_lr, verbose=1)
 model.compile(
     loss="categorical_crossentropy", optimizer=sgd_optimizer, metrics=["accuracy"]
