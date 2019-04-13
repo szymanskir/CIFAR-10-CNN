@@ -8,7 +8,7 @@ from keras.preprocessing.image import ImageDataGenerator
 
 
 def update_lr(epoch, current_lr):
-    if epoch in {100, 200}:
+    if epoch in {150, 200, 250}:
         return current_lr * 0.1
 
     return current_lr
@@ -34,8 +34,6 @@ y_train = keras.utils.to_categorical(y_train, 10)
 y_test = keras.utils.to_categorical(y_test, 10)
 
 img_augmentor = ImageDataGenerator(
-    zca_whitening=True,
-    featurewise_center=True,
     horizontal_flip=True,
     rotation_range=10,
     zoom_range=0.3,
