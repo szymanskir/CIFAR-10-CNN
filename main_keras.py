@@ -1,4 +1,5 @@
 import keras
+import numpy as np
 from cifarconv.networks import create_allcnn, create_lenet5
 from keras.callbacks import LearningRateScheduler
 from keras.datasets import cifar10
@@ -33,6 +34,8 @@ y_train = keras.utils.to_categorical(y_train, 10)
 y_test = keras.utils.to_categorical(y_test, 10)
 
 img_augmentor = ImageDataGenerator(
+    zca_whitening=True,
+    featurewise_center=True,
     horizontal_flip=True,
     rotation_range=10,
     zoom_range=0.3,
