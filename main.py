@@ -1,22 +1,23 @@
 import click
+import keras
 import logging
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from cifarconv.networks import LeNet5, AllCnn
-from cifarconv.utils import read_config
-from cifarconv.data import read_cifar_data
-from skorch import NeuralNetClassifier
-from sklearn.model_selection import GridSearchCV
-import torchvision.datasets
-import torchvision.transforms as transforms
-import torch.utils.data
+from cifarconv.networks import create_allcnn, create_lenet5
+from cifarconv.utils import read_config, write_pickle
+from keras.callbacks import LearningRateScheduler, ModelCheckpoint
+from keras.datasets import cifar10
+from keras.optimizers import SGD
+from keras.preprocessing.image import ImageDataGenerator
+
+
+def update_lr(epoch, current_lr):
+    if epoch in {100, 150, 200, 250}:
+        return current_lr * 0.1
+
+    return current_lr
 
 
 @click.group()
 def main():
-    torch.manual_seed(44)
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(name)-12s %(levelname)-8s %(message)s",
@@ -24,121 +25,70 @@ def main():
     )
 
 
+def read_cifar10():
+    (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+
+    x_train = x_train.astype("float32")
+    x_test = x_test.astype("float32")
+    x_train /= 255
+    x_test /= 255
+
+    y_train = keras.utils.to_categorical(y_train, 10)
+    y_test = keras.utils.to_categorical(y_test, 10)
+
+    return (x_train, y_train), (x_test, y_test)
+
+
 @main.command()
 @click.argument("config_file", type=click.Path(exists=True))
-@click.option("--output", default=None)
+@click.option("--output", default="network.hdf5")
 def train(config_file, output):
     config = read_config(config_file)["DEFAULT"]
 
-    BATCH_SIZE = config.getint("BatchSize")
-    WORKERS_COUNT = config.getint("WorkersCount")
-    EPOCHS_COUNT = config.getint("EpochsCount")
+    batch_size = config.getint("BatchSize")
+    epochs = config.getint("EpochsCount")
 
-    logging.info("Reading CIFAR-10 dataset...")
+    (x_train, y_train), (x_test, y_test) = read_cifar10()
 
-    train_transforms = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ]
+    model = create_allcnn(x_train.shape[1:])
+    sgd_optimizer = SGD(lr=0.1, momentum=0.9, nesterov=True)
+    lrate_scheduler = LearningRateScheduler(schedule=update_lr, verbose=1)
+    mcp_save = ModelCheckpoint(
+        output, save_best_only=True, monitor="val_loss", mode="min"
     )
-    train = torchvision.datasets.CIFAR10(
-        root="data", train=True, download=True, transform=train_transforms
-    )
-    train_loader = torch.utils.data.DataLoader(
-        train, batch_size=BATCH_SIZE, shuffle=True, num_workers=WORKERS_COUNT
-    )
-    test_transforms = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-    )
-    test = torchvision.datasets.CIFAR10(
-        root="data", train=False, download=True, transform=test_transforms
-    )
-    test_loader = torch.utils.data.DataLoader(
-        test, batch_size=BATCH_SIZE, shuffle=True, num_workers=WORKERS_COUNT
+    model.compile(
+        loss="categorical_crossentropy", optimizer=sgd_optimizer, metrics=["accuracy"]
     )
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = AllCnn().to(device)
-    cost_function = nn.CrossEntropyLoss()
-
-    model.train()
-    optimizer = optim.SGD(
-        model.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-3, nesterov=True
+    img_augmentor = ImageDataGenerator(
+        horizontal_flip=True,
+        rotation_range=10,
+        zoom_range=0.3,
+        width_shift_range=0.3,
+        height_shift_range=0.3,
     )
-    for epoch in range(EPOCHS_COUNT):
-        logging.info(f"Processing epoch {epoch}...")
-        if epoch > 1:
-            logging.info(f"Current cost: {current_cost}")
-        current_cost = 0
-        for X, y in train_loader:
-            X, y = X.to(device), y.to(device)
-            optimizer.zero_grad()
-            y_predictions = model(X)
-            cost = cost_function(y_predictions, y)
-            cost.backward()
+    img_augmentor.fit(x_train)
 
-            optimizer.step()
-            current_cost += cost.item()
-
-    if output:
-        torch.save(model.state_dict(), output)
-
-    model.eval()
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        for data in test_loader:
-            images, labels = data
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-
-    logging.info(
-        "Accuracy of the network on the 10000 test images: %d %%"
-        % (100 * correct / total)
+    history = model.fit_generator(
+        img_augmentor.flow(x_train, y_train, batch_size=batch_size),
+        epochs=epochs,
+        validation_data=(x_test, y_test),
+        steps_per_epoch=len(x_train) / batch_size,
+        callbacks=[lrate_scheduler, mcp_save],
     )
+
+    write_pickle(history, "model-history.pkl")
 
 
 @main.command()
-def test():
-    pass
+@click.argument("weights", type=click.Path(exists=True))
+def test(weights):
+    (x_train, y_train), (x_test, y_test) = read_cifar10()
+    model = create_allcnn(x_train.shape[1:])
+    model.load_weights(weights)
+    scores = model.evaluate(x_test, y_test, verbose=1)
+    logging.info(f"Test loss: {scores[0]}")
+    logging.info(f"Test accuracy: {scores[1]}")
 
-
-@main.command()
-@click.argument("config_file", type=click.Path(exists=True))
-def grid_search(config_file):
-    config = read_config(config_file)
-
-    logging.info("Reading CIFAR-10 dataset...")
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-    )
-
-    data = torchvision.datasets.CIFAR10(
-        root="data", train=True, download=True, transform=transform
-    )
-    X = np.array([x.numpy() for x, _ in data])
-    y = np.array([y for _, y in data])
-    module = LeNet5()
-    net = NeuralNetClassifier(
-        module=module, criterion=nn.CrossEntropyLoss, optimizer=optim.SGD
-    )
-    params = {
-        "lr": [0.1, 0.01, 0.001, 0.0001],
-        "max_epochs": [2, 4],
-        "optimizer__momentum": [0.7, 0.8, 0.9],
-        "optimizer__weight_decay": [10, 1, 0.1, 0.01, 0.001],
-    }
-
-    gs = GridSearchCV(net, params, refit=False, cv=3, scoring="accuracy", verbose=10)
-
-    gs.fit(X, y)
-    logging.info(f"\nBest score:{gs.best_score_}")
-    logging.info(f"\nBest parameters:{gs.best_params_}")
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

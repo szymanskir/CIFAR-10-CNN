@@ -45,6 +45,9 @@ tests:
 basic_nn:
 	$(PYTHON_INTERPRETER) main.py train models/basic.ini --output models/basic.pkl
 
+all_cnn:
+	$(PYTHON_INTERPRETER) main.py train models/basic.ini --output models/all-cnn.hdf5
+
 #################################################################################
 # Self Documenting Commands                                                     #
 #################################################################################
