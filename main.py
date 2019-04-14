@@ -85,6 +85,7 @@ def train(config_file, output):
 def test(weights):
     (x_train, y_train), (x_test, y_test) = read_cifar10()
     model = create_allcnn(x_train.shape[1:])
+    model.compile(loss="categorical_crossentropy", optimizer='sgd', metrics=["accuracy"])
     model.load_weights(weights)
     scores = model.evaluate(x_test, y_test, verbose=1)
     logging.info(f"Test loss: {scores[0]}")
