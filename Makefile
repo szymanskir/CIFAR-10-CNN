@@ -27,8 +27,8 @@ clean:
 
 ## Lint using flake8 nad check types using mypy
 lint:
-	flake8 sentinel
-	mypy sentinel --ignore-missing-imports
+	flake8 cifarconv
+	mypy cifarconv --ignore-missing-imports
 
 ## Create virtual environment:
 create_environment:
@@ -42,6 +42,11 @@ tests:
 # PROJECT RULES                                                                 #
 #################################################################################
 
+basic_nn:
+	$(PYTHON_INTERPRETER) main.py train models/basic.ini --output models/basic.pkl
+
+all_cnn:
+	$(PYTHON_INTERPRETER) main.py train models/all-cnn.ini --output models/all-cnn.hdf5
 
 #################################################################################
 # Self Documenting Commands                                                     #
