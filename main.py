@@ -3,6 +3,7 @@ import keras
 import logging
 from cifarconv.networks import create_allcnn, create_lenet5
 from cifarconv.utils import read_config, write_pickle
+from cifarconv.visualization import plot_roc_curves
 from keras.callbacks import LearningRateScheduler, ModelCheckpoint
 from keras.datasets import cifar10
 from keras.optimizers import SGD
@@ -82,14 +83,22 @@ def train(config_file, output):
 
 @main.command()
 @click.argument("weights", type=click.Path(exists=True))
-def test(weights):
+@click.option("--roc-curves", is_flag=True)
+def test(weights, roc_curves):
     (x_train, y_train), (x_test, y_test) = read_cifar10()
     model = create_allcnn(x_train.shape[1:])
-    model.compile(loss="categorical_crossentropy", optimizer='sgd', metrics=["accuracy"])
+    model.compile(
+        loss="categorical_crossentropy", optimizer="sgd", metrics=["accuracy"]
+    )
     model.load_weights(weights)
     scores = model.evaluate(x_test, y_test, verbose=1)
     logging.info(f"Test loss: {scores[0]}")
     logging.info(f"Test accuracy: {scores[1]}")
 
-if __name__ == '__main__':
+    if roc_curves:
+        y_score = model.predict(x_test)
+        plot_roc_curves(y_score, y_test)
+
+
+if __name__ == "__main__":
     main()
