@@ -25,10 +25,23 @@ def plot_cost(history):
 
 
 def plot_roc_curves(y_score, y_test):
-    lw = 2
-    n_classes = 10
+    plt.rcParams.update({"font.size": 14})
 
-    # Compute ROC curve and ROC area for each class
+    labels = [
+        "airplanes",
+        "cars",
+        "birds",
+        "cats",
+        "deer",
+        "dogs",
+        "frogs",
+        "horses",
+        "ships",
+        "trucks",
+    ]
+    lw = 2
+    n_classes = len(labels)
+
     fpr = dict()
     tpr = dict()
     roc_auc = dict()
@@ -36,29 +49,21 @@ def plot_roc_curves(y_score, y_test):
         fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i])
         roc_auc[i] = auc(fpr[i], tpr[i])
 
-    # Compute macro-average ROC curve and ROC area
-
-    # First aggregate all false positive rates
     all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
-
-    # Then interpolate all ROC curves at this points
     mean_tpr = np.zeros_like(all_fpr)
     for i in range(n_classes):
         mean_tpr += interp(all_fpr, fpr[i], tpr[i])
-
-    # Finally average it and compute AUC
     mean_tpr /= n_classes
 
     fpr["macro"] = all_fpr
     tpr["macro"] = mean_tpr
     roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
 
-    # Plot all ROC curves
     plt.figure(1)
     plt.plot(
         fpr["macro"],
         tpr["macro"],
-        label="macro-average ROC curve (area = {0:0.2f})" "".format(roc_auc["macro"]),
+        label="macro-average ROC curve (area = {0:0.4f})" "".format(roc_auc["macro"]),
         color="navy",
         linestyle=":",
         linewidth=4,
@@ -69,7 +74,8 @@ def plot_roc_curves(y_score, y_test):
             fpr[i],
             tpr[i],
             lw=lw,
-            label="ROC curve of class {0} (area = {1:0.2f})" "".format(i, roc_auc[i]),
+            label="ROC curve of class {0} (area = {1:0.4f})"
+            "".format(labels[i], roc_auc[i]),
         )
 
     plt.plot([0, 1], [0, 1], "k--", lw=lw)
@@ -88,7 +94,7 @@ def plot_roc_curves(y_score, y_test):
     plt.plot(
         fpr["macro"],
         tpr["macro"],
-        label="macro-average ROC curve (area = {0:0.2f})" "".format(roc_auc["macro"]),
+        label="macro-average ROC curve (area = {0:0.4f})" "".format(roc_auc["macro"]),
         color="navy",
         linestyle=":",
         linewidth=4,
@@ -99,12 +105,13 @@ def plot_roc_curves(y_score, y_test):
             fpr[i],
             tpr[i],
             lw=lw,
-            label="ROC curve of class {0} (area = {1:0.2f})" "".format(i, roc_auc[i]),
+            label="ROC curve of class {0} (area = {1:0.4f})"
+            "".format(labels[i], roc_auc[i]),
         )
 
     plt.plot([0, 1], [0, 1], "k--", lw=lw)
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
-    plt.title("Zoomed receiver operating characteristic curves")
+    plt.title("Receiver operating characteristic curves")
     plt.legend(loc="lower right")
     plt.show()
